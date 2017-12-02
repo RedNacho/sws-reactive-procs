@@ -64,14 +64,14 @@ class JsonParsingAlgorithm(jsonParser: JsonParser, objectMapper: ObjectMapper)(i
   @tailrec
   private def findField(jsonParser: JsonParser, fieldName: String): Done.type = {
     jsonParser.nextToken() match {
-      case JsonToken.FIELD_NAME if jsonParser.getCurrentName == "data" =>
+      case JsonToken.FIELD_NAME if jsonParser.getCurrentName == fieldName =>
         Done
       case JsonToken.FIELD_NAME =>
         jsonParser.nextToken()
         jsonParser.skipChildren()
         findField(jsonParser, fieldName)
       case _ =>
-        throw ParseException("Expected to find field names, including \"data\".")
+        throw ParseException(s"""Expected to find field names, including "$fieldName".""")
     }
   }
 
