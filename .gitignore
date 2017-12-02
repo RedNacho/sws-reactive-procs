@@ -28,3 +28,6 @@ project/plugins/project/
 
 # IntelliJ IDEA
 .idea
+
+# File from JSON example
+data

@@ -48,7 +48,7 @@ class ReactiveProcsSpecification extends WordSpec with GivenWhenThen with Matche
       And("We later signal that the data has finished")
       breakPromise.success(Done)
 
-      And("The first three futures contain the results")
+      Then("The first three futures contain the results")
       futures
         .map(Await.result(_, 10.seconds))
         .take(3)
