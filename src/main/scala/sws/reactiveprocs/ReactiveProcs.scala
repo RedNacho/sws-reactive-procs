@@ -85,7 +85,12 @@ object ReactiveProcs extends App {
       updateState(state => {
         state.copy(
           unprocessedChanges = true,
-          responseQueue = state.responseQueue.enqueue(response),
+          responseQueue = state.responseQueue.enqueue(response.copy(
+            response = state.terminationState match {
+              case Some(t) => t.map(_ => None)
+              case _ => response.response
+            }
+          )),
           terminationState = state.terminationState.orElse(
             response.response match {
               case Success(None) => Some(Success(Done))
