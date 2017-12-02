@@ -10,6 +10,8 @@ import com.fasterxml.jackson.core.{JsonEncoding, JsonFactory}
 object TestDataGenerator {
 
   def apply(fileName: String) = {
+    println("Generating loads of data, please wait...")
+
     val jsonGenerator = new JsonFactory().createGenerator(new File(fileName), JsonEncoding.UTF8)
 
     jsonGenerator.writeStartObject()
@@ -35,6 +37,8 @@ object TestDataGenerator {
     jsonGenerator.writeEndArray()
     jsonGenerator.writeStringField("moreGarbage", "Here's yet more garbage")
     jsonGenerator.close()
+
+    println("Data generated.")
   }
 
 }
