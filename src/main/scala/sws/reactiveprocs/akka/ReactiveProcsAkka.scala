@@ -11,6 +11,24 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 object ReactiveProcsAkka {
 
+  implicit class SourceExtensions[S](source: Source[S, _]) {
+
+    /**
+      * Executes the supplied algorithm on each element, outputting the results as individual elements.
+      * @param parallelism The number of requests to the stream which can be in flight at one time.
+      * @param algorithmFactory Factory which creates the algorithm to execute against the input.
+      * @param ec
+      * @tparam T
+      * @return
+      */
+    def flatMapThroughAlgorithm[T](parallelism: Int = 1)(algorithmFactory: S => Algorithm[T])(implicit ec: ExecutionContext): Source[T, _] = {
+      source.flatMapConcat(s => {
+        ReactiveProcsAkka.source(parallelism)(() => algorithmFactory(s))
+      })
+    }
+
+  }
+
   /**
     * Creates a data source based on the supplied algorithm.
     * @param parallelism The number of requests to the stream which can be in flight at one time.
@@ -22,21 +40,6 @@ object ReactiveProcsAkka {
   def source[T](parallelism: Int = 1)(algorithmFactory: () => Algorithm[T])(implicit ec: ExecutionContext): Source[T, NotUsed] = {
     Source.fromIterator(() => {
       stream(algorithmFactory()).iterator
-    }).via(futureResultsFlow(parallelism))
-  }
-
-  /**
-    * Executes the supplied algorithm on each supplied element, outputting the results as individual elements.
-    * @param parallelism The number of requests to the stream which can be in flight at one time.
-    * @param algorithmFactory Factory which creates the algorithm to execute against the input.
-    * @param ec
-    * @tparam S
-    * @tparam T
-    * @return
-    */
-  def mapConcat[S, T](parallelism: Int = 1)(algorithmFactory: S => Algorithm[T])(implicit ec: ExecutionContext): Flow[S, T, NotUsed] = {
-    Flow[S].mapConcat(s => {
-      stream(algorithmFactory(s))
     }).via(futureResultsFlow(parallelism))
   }
 

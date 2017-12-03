@@ -11,6 +11,9 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 //Dependencies required for Akka Streams use.
 libraryDependencies += "com.typesafe.akka" %% "akka-stream" % "2.5.7"
 
+//Dependencies required for RxScala use.
+libraryDependencies += "io.reactivex" % "rxscala_2.12" % "0.26.5"
+
 //Dependencies required for Scala async use.
 libraryDependencies += "org.scala-lang.modules" %% "scala-async" % "0.9.6"
 
