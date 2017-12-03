@@ -104,7 +104,7 @@ object ReactiveProcs extends App {
 
     // Processes the current state.
     // - If there is a request and a response in the queue, zips them together, allowing everybody to get on with their stuff.
-    // - If we're in a termination state, keeps both queues moving independently of one another - we don't care anymore.
+    // - If we're in a termination state, keeps the request queue moving - we don't care anymore.
     // - If any changes were made while processing, recurses in case there is more work to do.
     @tailrec
     def processChanges(): Unit = {
@@ -117,8 +117,6 @@ object ReactiveProcs extends App {
             req.response.tryComplete(res.response)
             res.requested.tryComplete(res.response.map(_ => Done))
             state.copy(unprocessedChanges = true, requestQueue = state.requestQueue.tail, responseQueue = state.responseQueue.tail)
-          case (Some(_), None, Some(_)) =>
-            state.copy(unprocessedChanges = true, responseQueue = state.responseQueue.tail)
           case (Some(terminationState), Some(req), None) =>
             req.response.tryComplete(terminationState.map(_ => None))
             state.copy(unprocessedChanges = true, requestQueue = state.requestQueue.tail)
