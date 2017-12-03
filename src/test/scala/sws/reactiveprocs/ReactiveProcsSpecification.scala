@@ -8,6 +8,7 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
+import scala.util.{Failure, Try}
 
 /**
   * Created by simonwhite on 12/2/17.
@@ -59,6 +60,106 @@ class ReactiveProcsSpecification extends WordSpec with GivenWhenThen with Matche
       futures
         .map(Await.result(_, 10.seconds))
         .drop(3)
+        .distinct
+        .toList should be (List(None))
+
+      And("The iterator should not signal any more data")
+      iterator.hasNext should be (false)
+    }
+
+    "Return a failed future if something goes wrong in the stream" in new ReactiveProcsTestScope {
+      Given("An algorithm which generates some elements, but does not complete immediately")
+      val promises = (1 to 3).map(_ => Promise[Element]()).toStream
+      val breakPromise: Promise[Done.type] = Promise[Done.type]()
+      val algorithm: Algorithm[Element] = createAlgorithm(promises, breakPromise)
+
+      When("The algorithm is streamed")
+      val stream: Stream[Future[Option[Element]]] = ReactiveProcs.stream(algorithm)
+
+      And("We create an iterator from the stream")
+      val iterator: Iterator[Future[Option[Element]]] = stream.iterator
+
+      And("We read too many elements from the iterator before we know that the algorithm has finished")
+      val futures: IndexedSeq[Future[Option[Element]]] = (1 to 10).map(_ => iterator.next())
+
+      And("We emit the first two elements")
+      promises(0).success(Element("A"))
+      promises(1).success(Element("B"))
+
+      And("We signal that something has gone wrong with the third element")
+      val exception = new RuntimeException("Something is wrong. :(")
+      promises(2).failure(exception)
+
+      Then("The first two futures contain the results")
+      futures
+        .take(2)
+        .map(Await.result(_, 10.seconds))
+        .map(_.map(_.value))
+        .toList should be (List(Some("A"), Some("B")))
+
+      And("The third future fails with the thrown exception")
+      futures
+        .slice(2, 3)
+        .map(f => Try(Await.result(f, 10.seconds)))
+        .toList should be (List(Failure(exception)))
+
+      And("The remaining futures all contain None")
+      futures
+        .drop(3)
+        .map(Await.result(_, 10.seconds))
+        .distinct
+        .toList should be (List(None))
+
+      And("The iterator should not signal any more data")
+      iterator.hasNext should be (false)
+    }
+
+    "Handle synchronous errors in the algorithm function" in new ReactiveProcsTestScope {
+      Given("An algorithm which immediately explodes")
+      val exception = new RuntimeException("I am not a good algorithm.")
+      val algorithm: Algorithm[Element] = (_: (Element) => Future[Done.type], _: () => Future[Done.type]) => {
+        throw exception
+      }
+
+      When("The algorithm is streamed")
+      val stream: Stream[Future[Option[Element]]] = ReactiveProcs.stream(algorithm)
+
+      Then("The stream contains one future which fails with the exception")
+      stream
+        .map(f => Try(Await.result(f, 10.seconds)))
+        .toList should be (List(Failure(exception)))
+    }
+
+    "Handle asynchronous errors in the algorithm function" in new ReactiveProcsTestScope {
+      Given("An algorithm which goes away and does something")
+      val promise = Promise[Done.type]()
+      val algorithm: Algorithm[Element] = (_: (Element) => Future[Done.type], _: () => Future[Done.type]) => {
+        promise.future
+      }
+
+      When("The algorithm is streamed")
+      val stream: Stream[Future[Option[Element]]] = ReactiveProcs.stream(algorithm)
+
+      And("We create an iterator from the stream")
+      val iterator: Iterator[Future[Option[Element]]] = stream.iterator
+
+      And("We read too many elements from the iterator before we know that the algorithm has finished")
+      val futures: IndexedSeq[Future[Option[Element]]] = (1 to 10).map(_ => iterator.next())
+
+      And("We blow up the algorithm")
+      val exception = new RuntimeException("Something is wrong. :(")
+      promise.failure(exception)
+
+      Then("The first future fails with the thrown exception")
+      futures
+        .take(1)
+        .map(f => Try(Await.result(f, 10.seconds)))
+        .toList should be (List(Failure(exception)))
+
+      And("The remaining futures all contain None")
+      futures
+        .drop(1)
+        .map(Await.result(_, 10.seconds))
         .distinct
         .toList should be (List(None))
 

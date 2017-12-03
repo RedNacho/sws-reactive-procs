@@ -71,36 +71,41 @@ object ReactiveProcs extends App {
 
     // Pushes a request for a stream element.
     def pushRequest(request: Request): Unit = {
-      updateState(state => {
+      val updatedState = updateState(state => {
         state.copy(
           unprocessedChanges = true,
           requestQueue = state.requestQueue.enqueue(request))
       })
 
-      processChanges()
+      if (updatedState.unprocessedChanges) {
+        processChanges()
+      }
     }
 
     // Pushes a response from the algorithm.
     def pushResponse(response: Response): Unit = {
-      updateState(state => {
-        val terminationState = state.terminationState.orElse(
-          if (response.response.toOption.flatten.isEmpty) {
-            Some(response.response.map(_ => Done))
-          } else {
-            None
-          })
+      val updatedState = updateState(state => {
+        if (state.terminationState.isDefined) {
+          state
+        } else {
+          val terminationState = response.response.toOption.flatten
+            .map(_ => None.asInstanceOf[Option[Try[Done.type]]])
+            .getOrElse(Some(response.response.map(_ => Done)))
 
-        state.copy(
-          unprocessedChanges = true,
-          responseQueue = if (terminationState.isDefined) {
-            state.responseQueue
-          } else {
-            state.responseQueue.enqueue(response)
-          },
-          terminationState = terminationState)
+          state.copy(
+            unprocessedChanges = true,
+            responseQueue = if (terminationState.isDefined) {
+              state.responseQueue
+            } else {
+              state.responseQueue.enqueue(response)
+            },
+            terminationState = terminationState)
+        }
       })
 
-      processChanges()
+      if (updatedState.unprocessedChanges) {
+        processChanges()
+      }
     }
 
     // Processes the current state.
@@ -117,10 +122,16 @@ object ReactiveProcs extends App {
           case (_, Some(req), Some(res)) =>
             req.response.tryComplete(res.response)
             res.requested.tryComplete(res.response.map(_ => Done))
-            state.copy(unprocessedChanges = true, requestQueue = state.requestQueue.tail, responseQueue = state.responseQueue.tail)
+            state.copy(
+              unprocessedChanges = true,
+              requestQueue = state.requestQueue.tail,
+              responseQueue = state.responseQueue.tail)
           case (Some(terminationState), Some(req), None) =>
             req.response.tryComplete(terminationState.map(_ => None))
-            state.copy(unprocessedChanges = true, requestQueue = state.requestQueue.tail)
+            state.copy(
+              unprocessedChanges = true,
+              requestQueue = state.requestQueue.tail,
+              terminationState = Some(Success(Done)))
           case _ =>
             state.copy(unprocessedChanges = false)
         }
