@@ -24,10 +24,9 @@ object ReactiveProcs extends App {
       *                    has been requested. Subsequent code should be hung on the returned future (the Scala async library
       *                    is the best way to achieve this effect and keep the procedural style). This is not strictly a
       *                    requirement, however - unlike C#'s yield return, you can wait for the future later.
-      * @param yieldBreak  Indicates that no more data will be returned. Subsequent code should be hung on the returned
-      *                    future. After this, the connection between the caller and the algorithm is broken. Any
-      *                    further calls to yieldReturn or yieldBreak will complete immediately. The rest of the algorithm
-      *                    will still execute, however (it's up to you if you want to do anything afterwards or not).
+      * @param yieldBreak  Indicates that no more data will be returned. If you wait for this future, it will never complete,
+      *                    and the rest of your code will not execute. This breaks the connection between the caller and the
+      *                    algorithm - any further calls to yieldReturn and yieldBreak will have no effect, and will not complete.
       * @return
       */
     def apply(yieldReturn: T => Future[Done.type], yieldBreak: () => Future[Done.type]): Future[Done.type]
@@ -83,21 +82,21 @@ object ReactiveProcs extends App {
     // Pushes a response from the algorithm.
     def pushResponse(response: Response): Unit = {
       updateState(state => {
+        val terminationState = state.terminationState.orElse(
+          if (response.response.toOption.flatten.isEmpty) {
+            Some(response.response.map(_ => Done))
+          } else {
+            None
+          })
+
         state.copy(
           unprocessedChanges = true,
-          responseQueue = state.responseQueue.enqueue(response.copy(
-            response = state.terminationState match {
-              case Some(t) => t.map(_ => None)
-              case _ => response.response
-            }
-          )),
-          terminationState = state.terminationState.orElse(
-            response.response match {
-              case Success(None) => Some(Success(Done))
-              case Failure(t) => Some(Failure(t))
-              case _ => None
-            }
-          ))
+          responseQueue = if (terminationState.isDefined) {
+            state.responseQueue
+          } else {
+            state.responseQueue.enqueue(response)
+          },
+          terminationState = terminationState)
       })
 
       processChanges()
@@ -118,8 +117,7 @@ object ReactiveProcs extends App {
             req.response.tryComplete(res.response)
             res.requested.tryComplete(res.response.map(_ => Done))
             state.copy(unprocessedChanges = true, requestQueue = state.requestQueue.tail, responseQueue = state.responseQueue.tail)
-          case (Some(terminationState), None, Some(res)) =>
-            res.requested.tryComplete(terminationState)
+          case (Some(_), None, Some(_)) =>
             state.copy(unprocessedChanges = true, responseQueue = state.responseQueue.tail)
           case (Some(terminationState), Some(req), None) =>
             req.response.tryComplete(terminationState.map(_ => None))
