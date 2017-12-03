@@ -134,7 +134,7 @@ I have not bothered to write a vanilla, dependency-free Reactive Streams publish
 
 This is because it's quite difficult to implement the specification properly from scratch, and I didn't need to do it for my original use case.
 
-However, I include Akka and RxScala implementations as examples of how to integrate the ReactiveProcs code with your favourite library Reactive Streams library.
+However, I include Akka and RxScala implementations as examples of how to integrate the ReactiveProcs code with your favourite Reactive Streams library.
 
 **How it works**
 
