@@ -53,6 +53,7 @@ object ReactiveProcs extends App {
     case class Request(response: Promise[Option[T]])
     case class State(unprocessedChanges: Boolean, terminationState: Option[Try[Done.type]], requestQueue: Queue[Request], responseQueue: Queue[Response])
 
+    // AtomicReference may not necessarily be the most performant way to handle the state changes, but it works well enough.
     val state = new AtomicReference[State](State(
       unprocessedChanges = false,
       terminationState = None,
