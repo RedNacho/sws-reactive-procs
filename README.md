@@ -128,13 +128,13 @@ If you want your algorithm to wait for a result to be returned before continuing
 
 Similarly, if you want your Stream not to request the next element until the previous Future has completed, you have to handle this yourself (e.g. with Akka's mapAsync, Future.foldLeft, etc). If you just use the Stream without waiting for any of the Futures, it will just keep requesting indefinitely, which is probably not what you want.
 
-**Reactive Streams**
+**Reactive Streams (DANGER ZONE)**
 
-I have not bothered to write a vanilla, dependency-free Reactive Streams publisher implementation as yet.
+I have (tentatively) written a vanilla Reactive Streams Publisher. The intention is to provide something which can be used with any RS library, not just the ones that I happened to think about. It is fully tested with the Reactive Streams TCK.
 
-This is because it's quite difficult to implement the specification properly from scratch, and I didn't need to do it for my original use case.
+However, the implementation is quite complicated and I'm not very happy with it (it's an interesting exercise, but RS is quite hard to implement properly).
 
-However, I include Akka and RxScala implementations as examples of how to integrate the ReactiveProcs code with your favourite Reactive Streams library.
+I strongly recommend following the Akka/RxScala examples instead, as that way you're using a tried-and-tested Reactive Streams implementation, rather than this thing I just hacked together.
 
 **How it works**
 
