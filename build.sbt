@@ -30,3 +30,9 @@ libraryDependencies += "org.reactivestreams" % "reactive-streams" % "1.0.1"
 libraryDependencies += "io.spray" %%  "spray-json" % "1.3.3"
 libraryDependencies += "com.fasterxml.jackson.core" % "jackson-core" % "2.9.2"
 libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.2"
+
+//Dependencies required for the CTP example.
+libraryDependencies += "com.commercetools.sdk.jvm.core" % "commercetools-java-client" % "1.27.0"
+libraryDependencies += "com.commercetools.sdk.jvm.core" % "commercetools-models" % "1.27.0"
+libraryDependencies += "com.commercetools.sdk.jvm.scala-add-ons" % "commercetools-scala-client_2.12" % "1.0.0"
+libraryDependencies += "com.commercetools.sdk.jvm.scala-add-ons" % "commercetools-scala-models_2.12" % "1.0.0"
