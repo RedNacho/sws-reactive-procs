@@ -68,7 +68,7 @@ private class FutureStreamSubscription[T](streamFactory: () => Stream[Future[Opt
 
   // Kind of a customised Iterator for reading from the Stream.
   private [this] val streamBuffer = StreamBuffer(
-    stream = Try(streamFactory())
+    streamFactory = () => Try(streamFactory())
       .recover { case t =>
         sequencer.enqueue {
           finished(Some(Failure(t)))
