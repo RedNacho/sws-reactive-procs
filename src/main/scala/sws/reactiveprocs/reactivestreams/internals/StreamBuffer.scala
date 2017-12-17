@@ -1,12 +1,9 @@
 package sws.reactiveprocs.reactivestreams.internals
 
-import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.atomic.AtomicReference
-import java.util.function.UnaryOperator
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
-import scala.util.Try
 
 private object StreamBuffer {
   def apply[T](streamFactory: () => Stream[T], lookAhead: Int): StreamBuffer[T] = {
@@ -50,9 +47,9 @@ private class StreamBuffer[T](streamFactory: () => Stream[T], lookAhead: Int) {
   @tailrec
   private [this] def fillQueue(upTo: Int): (Queue[T], Stream[T]) = {
     val current = queue.get()
-    
+
     current match {
-      case (q, s) if q.size < upTo && s.headOption.isDefined =>
+      case (q, s) if q.size < upTo && s.nonEmpty =>
         val next = (q.enqueue(s.head), s.tail)
         queue.compareAndSet(current, next)
         fillQueue(upTo)

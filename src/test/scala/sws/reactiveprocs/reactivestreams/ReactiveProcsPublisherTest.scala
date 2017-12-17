@@ -1,14 +1,12 @@
 package sws.reactiveprocs.reactivestreams
 
-import java.util.concurrent.atomic.AtomicLong
-
 import org.reactivestreams.Publisher
 import org.reactivestreams.tck.{PublisherVerification, TestEnvironment}
 import sws.reactiveprocs.ReactiveProcs.Done
 
+import scala.async.Async._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.async.Async._
 
 /**
   * Created by simonwhite on 12/16/17.
@@ -32,7 +30,7 @@ class ReactiveProcsPublisherTest extends PublisherVerification[Long](new TestEnv
   }
 
   override def createFailedPublisher(): Publisher[Long] = {
-    new ReactiveProcsPublisher[Long](() => throw new RuntimeException("Failure"), 10)
+    ReactiveProcsPublisher[Long](() => throw new RuntimeException("Failure"), 10)
   }
 
 }
