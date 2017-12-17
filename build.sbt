@@ -4,6 +4,9 @@ version := "1.0"
 
 scalaVersion := "2.12.4"
 
+// Required for integrating the PublisherVerification with SBT.
+enablePlugins(TestNGPlugin)
+
 //Test dependencies
 libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.4"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"

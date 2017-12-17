@@ -1,0 +1,5 @@
+name: TestNG
+tests:
+  - name: ReactiveProcsPublisherTest
+    classes:
+      - sws.reactiveprocs.reactivestreams.ReactiveProcsPublisherTest
