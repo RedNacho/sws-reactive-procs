@@ -1,6 +1,8 @@
 package sws.reactiveprocs.reactivestreams.internals
 
 import java.util.concurrent.locks.ReentrantLock
+import java.util.concurrent.atomic.AtomicReference
+import java.util.function.UnaryOperator
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
@@ -23,43 +25,39 @@ private object StreamBuffer {
   * @tparam T The type of the buffer elements
   */
 private class StreamBuffer[T](streamFactory: () => Stream[T], lookAhead: Int) {
-  // TODO Figure out a non-locky way of interacting with the Stream. I've used an explicit ReentrantLock to remind myself of this.
-  private [this] val lock = new ReentrantLock()
+  private [this] val queue = new AtomicReference[(Queue[T], Stream[T])]((Queue.empty, streamFactory()))
 
-  private [this] var queue: Queue[T] = Queue()
-
-  private [this] val iterator = {
-    lock.lock()
-    val it = Try {
-      val it = streamFactory().iterator
-      fillQueue(it, lookAhead)
-      it
-    }
-    lock.unlock()
-    it.get
-  }
-
-  def nextOption: Option[T] = {
-    lock.lock()
-
-    val result = Try {
-      fillQueue(iterator, 1)
-      val dequeueOpt = queue.dequeueOption
-      queue = dequeueOpt.map { case (_, q) => q }.getOrElse(Queue.empty)
-      fillQueue(iterator, lookAhead)
-      dequeueOpt.map { case (r, _) => r }
-    }
-
-    lock.unlock()
-
-    result.get
-  }
-
+  def nextOption: Option[T] = nextOptionRec
+  
   @tailrec
-  private [this] def fillQueue(iterator: Iterator[T], upTo: Int): Unit = {
-    if (queue.size < upTo && iterator.hasNext) {
-      queue = queue.enqueue(iterator.next())
-      fillQueue(iterator, upTo)
+  private [this] def nextOptionRec: Option[T] = {
+    val current = fillQueue(1)
+    
+    current match {
+      case (q, s) if q.nonEmpty =>
+        val result = q.head
+        if (queue.compareAndSet(current, (q.tail, s))) {
+          fillQueue(lookAhead)
+          Some(result)
+        } else {
+          nextOptionRec
+        }
+      case _ =>
+        None
+    }
+  }
+  
+  @tailrec
+  private [this] def fillQueue(upTo: Int): (Queue[T], Stream[T]) = {
+    val current = queue.get()
+    
+    current match {
+      case (q, s) if q.size < upTo && s.headOption.isDefined =>
+        val next = (q.enqueue(s.head), s.tail)
+        queue.compareAndSet(current, next)
+        fillQueue(upTo)
+      case _ =>
+        current
     }
   }
 }
