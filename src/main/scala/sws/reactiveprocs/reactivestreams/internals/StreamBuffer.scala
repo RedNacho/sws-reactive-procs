@@ -24,6 +24,8 @@ private object StreamBuffer {
 private class StreamBuffer[T](streamFactory: () => Stream[T], lookAhead: Int) {
   private [this] val queue = new AtomicReference[(Queue[T], Stream[T])]((Queue.empty, streamFactory()))
 
+  fillQueue(lookAhead)
+  
   def nextOption: Option[T] = nextOptionRec
   
   @tailrec
