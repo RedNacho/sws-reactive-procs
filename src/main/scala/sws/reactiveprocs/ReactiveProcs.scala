@@ -8,6 +8,8 @@ import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
+import scala.language.implicitConversions
+
 /**
   * Created by simonwhite on 11/28/17.
   */
@@ -52,21 +54,29 @@ object ReactiveProcs extends App {
     case class Response(requested: Promise[Done.type], response: Try[Option[T]])
     case class Request(response: Promise[Option[T]])
     case class State(unprocessedChanges: Boolean, terminationState: Option[Try[Done.type]], requestQueue: Queue[Request], responseQueue: Queue[Response])
-
+    
+    case class StateChangeResult(state: State, afterUpdate: () => Unit)
+    
+    implicit def stateToStateChangeResult(state: State): StateChangeResult = StateChangeResult(state, () => { })
+    
     // AtomicReference may not necessarily be the most performant way to handle the state changes, but it works well enough.
-    val state = new AtomicReference[State](State(
+    val state = new AtomicReference[StateChangeResult](State(
       unprocessedChanges = false,
       terminationState = None,
       requestQueue = Queue(),
       responseQueue = Queue()))
 
     // Updates the internal state of the stream in a thread-safe way.
-    def updateState(transition: State => State): State = {
-      state.updateAndGet(new UnaryOperator[State] {
-        override def apply(t: State): State = {
-          transition(t)
+    def updateState(transition: State => StateChangeResult): State = {
+      val stateChangeResult = state.updateAndGet(new UnaryOperator[StateChangeResult] {
+        override def apply(t: StateChangeResult): StateChangeResult = {
+          transition(t.state)
         }
       })
+      
+      stateChangeResult.afterUpdate()
+      
+      stateChangeResult.state
     }
 
     // Pushes a request for a stream element.
@@ -120,18 +130,28 @@ object ReactiveProcs extends App {
 
         (state.terminationState, nextRequest, nextResponse) match {
           case (_, Some(req), Some(res)) =>
-            req.response.tryComplete(res.response)
-            res.requested.tryComplete(res.response.map(_ => Done))
-            state.copy(
-              unprocessedChanges = true,
-              requestQueue = state.requestQueue.tail,
-              responseQueue = state.responseQueue.tail)
+            lazy val completePair = {
+              req.response.tryComplete(res.response)
+              res.requested.tryComplete(res.response.map(_ => Done))
+            }
+            
+            StateChangeResult(
+              state = state.copy(
+                unprocessedChanges = true,
+                requestQueue = state.requestQueue.tail,
+                responseQueue = state.responseQueue.tail),
+              afterUpdate = () => completePair)
           case (Some(terminationState), Some(req), None) =>
-            req.response.tryComplete(terminationState.map(_ => None))
-            state.copy(
-              unprocessedChanges = true,
-              requestQueue = state.requestQueue.tail,
-              terminationState = Some(Success(Done)))
+            lazy val completeRequest = {
+              req.response.tryComplete(terminationState.map(_ => None))
+            }
+            
+            StateChangeResult(
+              state = state.copy(
+                unprocessedChanges = true,
+                requestQueue = state.requestQueue.tail,
+                terminationState = Some(Success(Done))),
+              afterUpdate = () => completeRequest)
           case _ =>
             state.copy(unprocessedChanges = false)
         }
